@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/release/DenseTrack",
-            "args": ["/Dropbox/Graduation_Project/MatchMakersStudentEdition/video_mingle/Segment_30min_Day1_CAM12_20fps_960x540.mp4","test1-500"],
+            "args": ["/Users/Andyteng/Dropbox/Graduation_Project/MatchMakersStudentEdition/video_mingle/Segment_30min_Day1_CAM12_20fps_960x5401_500.mp4","test1-500"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
