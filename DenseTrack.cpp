@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <sys/stat.h>
+#include <sstream>
 
 using namespace std;
 using namespace cv;
@@ -34,17 +35,15 @@ vector<vector<int> > new_DRINK = getData(DRINK_path);
 //}
 
 int show_track = 1; // set show_track = 1, if you want to visualize the trajectories
-int camID = 2;		// camerID
-int day = 1;		// day number
 vector<int> x1;
 vector<int> x2;
 vector<int> yy1;
 vector<int> y2;
 
-// vector<int> x1Drink;
-// vector<int> x2Drink;
-// vector<int> y1Drink;
-// vector<int> y2Drink;
+vector<int> x1Drink;
+vector<int> x2Drink;
+vector<int> y1Drink;
+vector<int> y2Drink;
 
 int main(int argc, char **argv)
 {
@@ -72,7 +71,10 @@ int main(int argc, char **argv)
 		printf("Loading VIDEO %s\n", video);
 	}
 
+	//string temppath = "/Users/Andyteng/Dropbox/Graduation_Project/MILES_gestures/DT_Segment_30min_Day1_CAM13_20fps_960x5401-500/subject" + tostr(curSub);
+	//const char *filename = temppath.c_str();
 	char *filename = argv[2];
+	int curSub = atoi(argv[3]);
 	int flag = arg_parse(argc, argv);
 	capture.open(seq);
 
@@ -149,307 +151,285 @@ int main(int argc, char **argv)
 			continue;
 		}
 		printf("Processing %d of %d\n", frame_num, end_frame);
-	//	if (!new_DRINK[frame_num].empty())
-	//	{
-			if (frame_num == start_frame)
+		printf("Process sub %i\n",  curSub);
+		if (frame_num == start_frame)
+		{
+			image.create(frame.size(), CV_8UC3);
+			grey.create(frame.size(), CV_8UC1);
+			prev_grey.create(frame.size(), CV_8UC1);
+
+			InitPry(frame, fscales, sizes);
+
+			BuildPry(sizes, CV_8UC1, prev_grey_pyr);
+			BuildPry(sizes, CV_8UC1, grey_pyr);
+
+			BuildPry(sizes, CV_32FC2, flow_pyr);
+			BuildPry(sizes, CV_32FC(5), prev_poly_pyr);
+			BuildPry(sizes, CV_32FC(5), poly_pyr);
+
+			xyScaleTracks.resize(scale_num);
+
+			frame.copyTo(image);
+			cvtColor(image, prev_grey, CV_BGR2GRAY);
+			for (int iScale = 0; iScale < scale_num; iScale++)
 			{
-				image.create(frame.size(), CV_8UC3);
-				grey.create(frame.size(), CV_8UC1);
-				prev_grey.create(frame.size(), CV_8UC1);
+				if (iScale == 0)
+					prev_grey.copyTo(prev_grey_pyr[0]);
+				else
+					resize(prev_grey_pyr[iScale - 1], prev_grey_pyr[iScale], prev_grey_pyr[iScale].size(), 0, 0, INTER_LINEAR);
 
-				InitPry(frame, fscales, sizes);
+				// dense sampling feature points
+				std::vector<Point2f> points(0);
+				DenseSample(prev_grey_pyr[iScale], points, quality, min_distance);
 
-				BuildPry(sizes, CV_8UC1, prev_grey_pyr);
-				BuildPry(sizes, CV_8UC1, grey_pyr);
-
-				BuildPry(sizes, CV_32FC2, flow_pyr);
-				BuildPry(sizes, CV_32FC(5), prev_poly_pyr);
-				BuildPry(sizes, CV_32FC(5), poly_pyr);
-
-				xyScaleTracks.resize(scale_num);
-
-				frame.copyTo(image);
-				cvtColor(image, prev_grey, CV_BGR2GRAY);
-				for (int iScale = 0; iScale < scale_num; iScale++)
+				// save the feature points
+				std::list<Track> &tracks = xyScaleTracks[iScale];
+				for (i = 0; i < points.size(); i++)
 				{
-					if (iScale == 0)
-						prev_grey.copyTo(prev_grey_pyr[0]);
-					else
-						resize(prev_grey_pyr[iScale - 1], prev_grey_pyr[iScale], prev_grey_pyr[iScale].size(), 0, 0, INTER_LINEAR);
-
-					// dense sampling feature points
-					std::vector<Point2f> points(0);
-					DenseSample(prev_grey_pyr[iScale], points, quality, min_distance);
-
-					// save the feature points
-					std::list<Track> &tracks = xyScaleTracks[iScale];
-					for (i = 0; i < points.size(); i++)
-					{
-						tracks.push_back(Track(points[i], trackInfo, hogInfo, hofInfo, mbhInfo));
-					}
+					tracks.push_back(Track(points[i], trackInfo, hogInfo, hofInfo, mbhInfo));
 				}
-
-				// compute polynomial expansion
-				my::FarnebackPolyExpPyr(prev_grey, prev_poly_pyr, fscales, 7, 1.5);
-
-				frame_num++;
-				continue;
 			}
 
-			init_counter++;
-			frame.copyTo(image);
-			cvtColor(image, grey, CV_BGR2GRAY);
+			// compute polynomial expansion
+			my::FarnebackPolyExpPyr(prev_grey, prev_poly_pyr, fscales, 7, 1.5);
 
-			// compute optical flow for all scales once
-			my::FarnebackPolyExpPyr(grey, poly_pyr, fscales, 7, 1.5);
-			my::calcOpticalFlowFarneback(prev_poly_pyr, poly_pyr, flow_pyr, 10, 2);
+			frame_num++;
+			continue;
+		}
 
-			//get the coordinates for each drinking subjects
-			// x1Drink.clear();
-			// x2Drink.clear();
-			// y1Drink.clear();
-			// y2Drink.clear();
-			// for (int subID = 0; subID < new_DRINK[frame_num].size(); subID++)
-			// {
-			// 	int x1Drink_ind = (new_DRINK[frame_num][subID] - 1) * 7 + 1;
-			// 	x1Drink.push_back(new_DATA[frame_num][x1Drink_ind]);
-			// 	y1Drink.push_back(new_DATA[frame_num][x1Drink_ind + 1]);
-			// 	x2Drink.push_back(new_DATA[frame_num][x1Drink_ind + 2]);
-			// 	y2Drink.push_back(new_DATA[frame_num][x1Drink_ind + 3]);
-			// }
+		init_counter++;
+		frame.copyTo(image);
+		cvtColor(image, grey, CV_BGR2GRAY);
 
-			//get the rectangular coodinates for each subject
-			x1.clear();
-			x2.clear();
-			yy1.clear();
-			y2.clear();
-			new_PAR[0].size();
-			// if (!new_DRINK[frame_num].empty())
-			// {
-			for (int subID = 0; subID < new_PAR[0].size(); subID++)
+		// compute optical flow for all scales once
+		my::FarnebackPolyExpPyr(grey, poly_pyr, fscales, 7, 1.5);
+		my::calcOpticalFlowFarneback(prev_poly_pyr, poly_pyr, flow_pyr, 10, 2);
+
+		//get the id for each subject
+		x1.clear();
+		x2.clear();
+		yy1.clear();
+		y2.clear();
+		
+		for (int i = 0; i < new_PAR[frame_num].size(); i++)
+		{
+			if(new_PAR[frame_num][i]==curSub)
 			{
-				int x1_ind = (new_PAR[frame_num][subID] - 1) * 7 + 1;
+				int x1_ind = (new_PAR[frame_num][i] - 1) * 7 + 1;
 				x1.push_back(new_DATA[frame_num][x1_ind]);
 				yy1.push_back(new_DATA[frame_num][x1_ind + 1]);
 				x2.push_back(new_DATA[frame_num][x1_ind + 2]);
 				y2.push_back(new_DATA[frame_num][x1_ind + 3]);
 			}
-			//}
+		}
+		for (int iScale = 0; iScale < scale_num; iScale++)
+		{
+			if (iScale == 0)
+				grey.copyTo(grey_pyr[0]);
+			else
+				resize(grey_pyr[iScale - 1], grey_pyr[iScale], grey_pyr[iScale].size(), 0, 0, INTER_LINEAR);
 
-			for (int iScale = 0; iScale < scale_num; iScale++)
+			int width = grey_pyr[iScale].cols;
+			int height = grey_pyr[iScale].rows;
+
+			// compute the integral histograms
+			DescMat *hogMat = InitDescMat(height + 1, width + 1, hogInfo.nBins);
+			HogComp(prev_grey_pyr[iScale], hogMat->desc, hogInfo);
+
+			DescMat *hofMat = InitDescMat(height + 1, width + 1, hofInfo.nBins);
+			HofComp(flow_pyr[iScale], hofMat->desc, hofInfo);
+
+			DescMat *mbhMatX = InitDescMat(height + 1, width + 1, mbhInfo.nBins);
+			DescMat *mbhMatY = InitDescMat(height + 1, width + 1, mbhInfo.nBins);
+			MbhComp(flow_pyr[iScale], mbhMatX->desc, mbhMatY->desc, mbhInfo);
+
+			// track feature points in each scale separately
+			std::list<Track> &tracks = xyScaleTracks[iScale];
+			for (std::list<Track>::iterator iTrack = tracks.begin(); iTrack != tracks.end();)
 			{
-				if (iScale == 0)
-					grey.copyTo(grey_pyr[0]);
-				else
-					resize(grey_pyr[iScale - 1], grey_pyr[iScale], grey_pyr[iScale].size(), 0, 0, INTER_LINEAR);
+				int index = iTrack->index;
+				Point2f prev_point = iTrack->point[index];
+				int x = std::min<int>(std::max<int>(cvRound(prev_point.x), 0), width - 1);
+				int y = std::min<int>(std::max<int>(cvRound(prev_point.y), 0), height - 1);
 
-				int width = grey_pyr[iScale].cols;
-				int height = grey_pyr[iScale].rows;
+				Point2f point;
+				point.x = prev_point.x + flow_pyr[iScale].ptr<float>(y)[2 * x];
+				point.y = prev_point.y + flow_pyr[iScale].ptr<float>(y)[2 * x + 1];
 
-				// compute the integral histograms
-				DescMat *hogMat = InitDescMat(height + 1, width + 1, hogInfo.nBins);
-				HogComp(prev_grey_pyr[iScale], hogMat->desc, hogInfo);
-
-				DescMat *hofMat = InitDescMat(height + 1, width + 1, hofInfo.nBins);
-				HofComp(flow_pyr[iScale], hofMat->desc, hofInfo);
-
-				DescMat *mbhMatX = InitDescMat(height + 1, width + 1, mbhInfo.nBins);
-				DescMat *mbhMatY = InitDescMat(height + 1, width + 1, mbhInfo.nBins);
-				MbhComp(flow_pyr[iScale], mbhMatX->desc, mbhMatY->desc, mbhInfo);
-
-				// track feature points in each scale separately
-				std::list<Track> &tracks = xyScaleTracks[iScale];
-				for (std::list<Track>::iterator iTrack = tracks.begin(); iTrack != tracks.end();)
+				if (point.x <= 0 || point.x >= width || point.y <= 0 || point.y >= height)
 				{
-					int index = iTrack->index;
-					Point2f prev_point = iTrack->point[index];
-					int x = std::min<int>(std::max<int>(cvRound(prev_point.x), 0), width - 1);
-					int y = std::min<int>(std::max<int>(cvRound(prev_point.y), 0), height - 1);
+					iTrack = tracks.erase(iTrack);
+					continue;
+				}
 
-					Point2f point;
-					point.x = prev_point.x + flow_pyr[iScale].ptr<float>(y)[2 * x];
-					point.y = prev_point.y + flow_pyr[iScale].ptr<float>(y)[2 * x + 1];
-
-					if (point.x <= 0 || point.x >= width || point.y <= 0 || point.y >= height)
-					{
-						iTrack = tracks.erase(iTrack);
-						continue;
-					}
-
-					if (point.x <= 0 || point.x >= width || point.y <= 0 || point.y >= height)
-					{
-						iTrack = tracks.erase(iTrack);
-						continue;
-					}
-					int con = 0;
-					//if drinking is detected in this frame
-					// for (int j = 0; j < new_DRINK[frame_num].size(); j++)
-					// {
-					// 	if (point.x >= x1Drink[j] && point.x <= x2Drink[j] && point.y >= y1Drink[j] && point.y <= y2Drink[j])
-					// 	{
-					// 		con = 1;
-					// 	}
-					// }
-
-					// draw bounding box for all subjects
-					// for (int i = 0; i < x1.size(); i++)
-					// {
-					int i = 0;
+				if (point.x <= 0 || point.x >= width || point.y <= 0 || point.y >= height)
+				{
+					iTrack = tracks.erase(iTrack);
+					continue;
+				}
+				int con = 0;
+				// draw bounding box for all subjects
+				for (int i = 0; i < x1.size(); i++)
+				{
 					if (point.x >= x1[i] && point.x <= x2[i] && point.y >= yy1[i] && point.y <= y2[i])
 					{
 						con = 1;
 					}
-					//}
-					if (con == 0)
+				}
+				if (con == 0)
+				{
+					iTrack = tracks.erase(iTrack);
+					continue;
+				}
+				else
+				{
+					con = 0;
+				}
+
+				// get the descriptors for the feature point
+				RectInfo rect;
+				GetRect(prev_point, rect, width, height, hogInfo);
+				GetDesc(hogMat, rect, hogInfo, iTrack->hog, index);
+				GetDesc(hofMat, rect, hofInfo, iTrack->hof, index);
+				GetDesc(mbhMatX, rect, mbhInfo, iTrack->mbhX, index);
+				GetDesc(mbhMatY, rect, mbhInfo, iTrack->mbhY, index);
+				iTrack->addPoint(point);
+
+				// draw the trajectories at the first scale
+				if (show_track == 1 && iScale == 0)
+					DrawTrack(iTrack->point, iTrack->index, fscales[iScale], image);
+
+				// if the trajectory achieves the maximal length
+				if (iTrack->index >= trackInfo.length)
+				{
+					std::vector<Point2f> trajectory(trackInfo.length + 1);
+					for (int i = 0; i <= trackInfo.length; ++i)
+						trajectory[i] = iTrack->point[i] * fscales[iScale];
+
+					//keep the trajectories positions before normalized
+					std::vector<Point2f> trajectory_poisiotns(trackInfo.length + 1);
+
+					for (int i = 0; i <= trackInfo.length; ++i)
+						trajectory_poisiotns[i] = iTrack->point[i] * fscales[iScale];
+
+					float mean_x(0), mean_y(0), var_x(0), var_y(0), length(0);
+					if (IsValid(trajectory, mean_x, mean_y, var_x, var_y, length))
 					{
-						iTrack = tracks.erase(iTrack);
-						continue;
-					}
-					else
-					{
-						con = 0;
-					}
+						//string trajectory_owner;
+						//printf("%d\t%f\t%f\t%f\t%f\t%f\t%f\t", frame_num, mean_x, mean_y, var_x, var_y, length, fscales[iScale]);
+						//myfile<< frame_num <<"\t"<< mean_x<<"\t"<< mean_y<<"\t"<< var_x<<"\t"<< var_y<<"\t"<< length<<"\t"<< fscales[iScale]<<"\t";
+						cout << "stored frame number is " << frame_num << endl;
+						str.append(tostr(frame_num) + "\t" + tostr(mean_x) + "\t" + tostr(mean_y) + "\t" + tostr(var_x) + "\t" + tostr(var_y) + "\t" + tostr(length) + "\t" + tostr(fscales[iScale]) + "\t");
+						//str.append("%d\t%f\t%f\t%f\t%f\t%f\t%f",frame_num, mean_x, mean_y, var_x, var_y, length, fscales[iScale]);
 
-					// get the descriptors for the feature point
-					RectInfo rect;
-					GetRect(prev_point, rect, width, height, hogInfo);
-					GetDesc(hogMat, rect, hogInfo, iTrack->hog, index);
-					GetDesc(hofMat, rect, hofInfo, iTrack->hof, index);
-					GetDesc(mbhMatX, rect, mbhInfo, iTrack->mbhX, index);
-					GetDesc(mbhMatY, rect, mbhInfo, iTrack->mbhY, index);
-					iTrack->addPoint(point);
+						// for spatio-temporal pyramid
+						//printf("%f\t", std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999));
+						//printf("%f\t", std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999));
+						//printf("%f\t", std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999));
 
-					// draw the trajectories at the first scale
-					if (show_track == 1 && iScale == 0)
-						DrawTrack(iTrack->point, iTrack->index, fscales[iScale], image);
+						//myfile<<std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999)<<"\t";
+						//myfile<<std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999)<<"\t";
+						//myfile<<std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999)<<"\t";
 
-					// if the trajectory achieves the maximal length
-					if (iTrack->index >= trackInfo.length)
-					{
-						std::vector<Point2f> trajectory(trackInfo.length + 1);
-						for (int i = 0; i <= trackInfo.length; ++i)
-							trajectory[i] = iTrack->point[i] * fscales[iScale];
+						//str.append(tostr(std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999))+"\t");
+						//str.append(tostr(std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999))+"\t");
+						//str.append(tostr(std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999))+"\t");
 
-						//keep the trajectories positions before normalized
-						std::vector<Point2f> trajectory_poisiotns(trackInfo.length + 1);
+						//myfile<<iTrack->original_point.x<<"\t"<<iTrack->original_point.y<<"\t";
+						//str.append(tostr(iTrack->original_point.x) + "\t" + tostr(iTrack->original_point.y) + "\t");
 
-						for (int i = 0; i <= trackInfo.length; ++i)
-							trajectory_poisiotns[i] = iTrack->point[i] * fscales[iScale];
-
-						float mean_x(0), mean_y(0), var_x(0), var_y(0), length(0);
-						if (IsValid(trajectory, mean_x, mean_y, var_x, var_y, length))
+						// output the normalized trajectory (only need to divide by dt to have velocity)
+						for (int i = 0; i < trackInfo.length; ++i)
 						{
-							//string trajectory_owner;
-							//printf("%d\t%f\t%f\t%f\t%f\t%f\t%f\t", frame_num, mean_x, mean_y, var_x, var_y, length, fscales[iScale]);
-							//myfile<< frame_num <<"\t"<< mean_x<<"\t"<< mean_y<<"\t"<< var_x<<"\t"<< var_y<<"\t"<< length<<"\t"<< fscales[iScale]<<"\t";
-							cout << "stored frame number is " << frame_num << endl;
-							str.append(tostr(frame_num) + "\t" + tostr(mean_x) + "\t" + tostr(mean_y) + "\t" + tostr(var_x) + "\t" + tostr(var_y) + "\t" + tostr(length) + "\t" + tostr(fscales[iScale]) + "\t");
-							//str.append("%d\t%f\t%f\t%f\t%f\t%f\t%f",frame_num, mean_x, mean_y, var_x, var_y, length, fscales[iScale]);
-
-							// for spatio-temporal pyramid
-							//printf("%f\t", std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999));
-							//printf("%f\t", std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999));
-							//printf("%f\t", std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999));
-
-							//myfile<<std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999)<<"\t";
-							//myfile<<std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999)<<"\t";
-							//myfile<<std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999)<<"\t";
-
-							//str.append(tostr(std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999))+"\t");
-							//str.append(tostr(std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999))+"\t");
-							//str.append(tostr(std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999))+"\t");
-
-							//myfile<<iTrack->original_point.x<<"\t"<<iTrack->original_point.y<<"\t";
-							//str.append(tostr(iTrack->original_point.x) + "\t" + tostr(iTrack->original_point.y) + "\t");
-
-							// output the normalized trajectory (only need to divide by dt to have velocity)
-							for (int i = 0; i < trackInfo.length; ++i)
-							{
-								//printf("%f\t%f\t", trajectory[i].x,trajectory[i].y);
-								//myfile<< trajectory[i].x <<"\t"<< trajectory[i].y <<"\t";
-								//str.append(tostr(trajectory[i].x) + "\t" + tostr(trajectory[i].y) + "\t");
-							}
-
-							// output the trajectory positions in x and y
-							//for (int i = 0; i < trackInfo.length; ++i){
-							//	str.append(tostr(trajectory_poisiotns[i].x) + "\t" + tostr(trajectory_poisiotns[i].y) + "\t");
-							//}
-
-							//PrintDesc(iTrack->hog, hogInfo, trackInfo);
-							//PrintDesc(iTrack->hof, hofInfo, trackInfo);
-							//PrintDesc(iTrack->mbhX, mbhInfo, trackInfo);
-							//PrintDesc(iTrack->mbhY, mbhInfo, trackInfo);
-							//printf("\n");
-							//myfile<<"\n";
-
-							str.append("\n");
+							//printf("%f\t%f\t", trajectory[i].x,trajectory[i].y);
+							//myfile<< trajectory[i].x <<"\t"<< trajectory[i].y <<"\t";
+							//str.append(tostr(trajectory[i].x) + "\t" + tostr(trajectory[i].y) + "\t");
 						}
 
-						iTrack = tracks.erase(iTrack);
-						continue;
+						// output the trajectory positions in x and y
+						//for (int i = 0; i < trackInfo.length; ++i){
+						//	str.append(tostr(trajectory_poisiotns[i].x) + "\t" + tostr(trajectory_poisiotns[i].y) + "\t");
+						//}
+
+						//PrintDesc(iTrack->hog, hogInfo, trackInfo);
+						//PrintDesc(iTrack->hof, hofInfo, trackInfo);
+						//PrintDesc(iTrack->mbhX, mbhInfo, trackInfo);
+						//PrintDesc(iTrack->mbhY, mbhInfo, trackInfo);
+						//printf("\n");
+						//myfile<<"\n";
+
+						str.append("\n");
 					}
-					++iTrack;
-				}
-				ReleDescMat(hogMat);
-				ReleDescMat(hofMat);
-				ReleDescMat(mbhMatX);
-				ReleDescMat(mbhMatY);
 
-				if (init_counter != trackInfo.gap)
+					iTrack = tracks.erase(iTrack);
 					continue;
-
-				// detect new feature points every initGap frames
-				std::vector<Point2f> points(0);
-				for (std::list<Track>::iterator iTrack = tracks.begin(); iTrack != tracks.end(); iTrack++)
-					points.push_back(iTrack->point[iTrack->index]);
-
-				DenseSample(grey_pyr[iScale], points, quality, min_distance);
-				// save the new feature points
-				for (i = 0; i < points.size(); i++)
-					tracks.push_back(Track(points[i], trackInfo, hogInfo, hofInfo, mbhInfo));
+				}
+				++iTrack;
 			}
+			ReleDescMat(hogMat);
+			ReleDescMat(hofMat);
+			ReleDescMat(mbhMatX);
+			ReleDescMat(mbhMatY);
 
-			init_counter = 0;
-			grey.copyTo(prev_grey);
-			for (i = 0; i < scale_num; i++)
+			if (init_counter != trackInfo.gap)
+				continue;
+
+			// detect new feature points every initGap frames
+			std::vector<Point2f> points(0);
+			for (std::list<Track>::iterator iTrack = tracks.begin(); iTrack != tracks.end(); iTrack++)
+				points.push_back(iTrack->point[iTrack->index]);
+
+			DenseSample(grey_pyr[iScale], points, quality, min_distance);
+			// save the new feature points
+			for (i = 0; i < points.size(); i++)
+				tracks.push_back(Track(points[i], trackInfo, hogInfo, hofInfo, mbhInfo));
+		}
+
+		init_counter = 0;
+		grey.copyTo(prev_grey);
+		for (i = 0; i < scale_num; i++)
+		{
+			grey_pyr[i].copyTo(prev_grey_pyr[i]);
+			poly_pyr[i].copyTo(prev_poly_pyr[i]);
+		}
+
+		//If there are complete trajectories in this frame, store them in a file
+		if (!str.empty())
+		{
+			//printf("Storing file at %d frames... ", frame_num);
+			cout << "check frame number" << frame_num << endl;
+			string file_ = string(filename) + "/" + tostr(frame_num) + ".csv";
+			//printf (file_,"%d.csv",frame_num);
+			//strcat (file_,".csv");
+			ofstream myfile;
+			ofstream subject;
+
+			myfile.open(file_.c_str());
+			myfile << str;
+			myfile.close();
+			printf("Done!\n");
+		}
+		if (show_track == 1)
+		{
+			for (int i = 0; i < new_PAR[frame_num].size(); i++)
 			{
-				grey_pyr[i].copyTo(prev_grey_pyr[i]);
-				poly_pyr[i].copyTo(prev_poly_pyr[i]);
+				if(new_PAR[frame_num][i] == curSub)
+				{
+					Point lu = Point(x1[0], yy1[0]);
+					Point rt = Point(x2[0], y2[0]);
+					// if the current action is annotated as drinking
+					char ss[200];
+					sprintf(ss, "sub %i", new_PAR[frame_num][i]);
+					putText(image, ss, Point(x1[0], yy1[0] + 20), FONT_HERSHEY_SIMPLEX, 0.6, Scalar(255, 0, 0), 2, 1);
+					rectangle(image, lu, rt, Scalar(0, 255, 0), 2);
+				}
 			}
-
-			//If there are complete trajectories in this frame, store them in a file
-			if (!str.empty())
-			{
-				//printf("Storing file at %d frames... ", frame_num);
-				cout << "check frame number" << frame_num << endl;
-				string file_ = string(filename) + "/" + tostr(frame_num) + ".csv";
-				//printf (file_,"%d.csv",frame_num);
-				//strcat (file_,".csv");
-				ofstream myfile;
-				ofstream subject;
-
-				myfile.open(file_.c_str());
-				myfile << str;
-				myfile.close();
-				printf("Done!\n");
-			}
-			if (show_track == 1)
-			{
-				//for (int i = 0; i < x1.size(); i++)
-				//{
-				int i = 0;
-				Point lu = Point(x1[i], yy1[i]);
-				Point rt = Point(x2[i], y2[i]);
-				char ss[200];
-				sprintf(ss, "Sub %i", new_PAR[frame_num][i]);
-				//putText(image, ss, Point(x1Drink[j], y1Drink[j] + 20), CV_FONT_HERSHEY_PLAIN, 1, Scalar(0, 166, 214), 2, 1);
-				rectangle(image, lu, rt, Scalar(0, 255, 0), 2);
-				imshow("DenseTrack", image);
-				c = cvWaitKey(3);
-				if ((char)c == 27)
-					break;
-			}
-			frame_num++;
+			imshow("DenseTrack", image);
+			c = cvWaitKey(3);
+			if ((char)c == 27)
+				break;
+		}
+		frame_num++;
 	}
 	if (show_track == 1)
 		destroyWindow("DenseTrack");
