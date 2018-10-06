@@ -41,10 +41,10 @@ vector<int> x2;
 vector<int> yy1;
 vector<int> y2;
 
-vector<int> x1Drink;
-vector<int> x2Drink;
-vector<int> y1Drink;
-vector<int> y2Drink;
+// vector<int> x1Drink;
+// vector<int> x2Drink;
+// vector<int> y1Drink;
+// vector<int> y2Drink;
 
 int main(int argc, char **argv)
 {
@@ -149,9 +149,9 @@ int main(int argc, char **argv)
 			continue;
 		}
 		printf("Processing %d of %d\n", frame_num, end_frame);
-		if (!new_DRINK[frame_num].empty())
-		{
-			if (frame_num == 144)
+	//	if (!new_DRINK[frame_num].empty())
+	//	{
+			if (frame_num == start_frame)
 			{
 				image.create(frame.size(), CV_8UC3);
 				grey.create(frame.size(), CV_8UC1);
@@ -205,36 +205,37 @@ int main(int argc, char **argv)
 			my::calcOpticalFlowFarneback(prev_poly_pyr, poly_pyr, flow_pyr, 10, 2);
 
 			//get the coordinates for each drinking subjects
-			x1Drink.clear();
-			x2Drink.clear();
-			y1Drink.clear();
-			y2Drink.clear();
-			for (int subID = 0; subID < new_DRINK[frame_num].size(); subID++)
-			{
-				int x1Drink_ind = (new_DRINK[frame_num][subID] - 1) * 7 + 1;
-				x1Drink.push_back(new_DATA[frame_num][x1Drink_ind]);
-				y1Drink.push_back(new_DATA[frame_num][x1Drink_ind + 1]);
-				x2Drink.push_back(new_DATA[frame_num][x1Drink_ind + 2]);
-				y2Drink.push_back(new_DATA[frame_num][x1Drink_ind + 3]);
-			}
+			// x1Drink.clear();
+			// x2Drink.clear();
+			// y1Drink.clear();
+			// y2Drink.clear();
+			// for (int subID = 0; subID < new_DRINK[frame_num].size(); subID++)
+			// {
+			// 	int x1Drink_ind = (new_DRINK[frame_num][subID] - 1) * 7 + 1;
+			// 	x1Drink.push_back(new_DATA[frame_num][x1Drink_ind]);
+			// 	y1Drink.push_back(new_DATA[frame_num][x1Drink_ind + 1]);
+			// 	x2Drink.push_back(new_DATA[frame_num][x1Drink_ind + 2]);
+			// 	y2Drink.push_back(new_DATA[frame_num][x1Drink_ind + 3]);
+			// }
 
-			//get the id for each subject
-			// x1.clear();
-			// x2.clear();
-			// yy1.clear();
-			// y2.clear();
-			// new_PAR[0].size();
+			//get the rectangular coodinates for each subject
+			x1.clear();
+			x2.clear();
+			yy1.clear();
+			y2.clear();
+			new_PAR[0].size();
 			// if (!new_DRINK[frame_num].empty())
 			// {
-			// 	for (int subID = 0; subID < new_PAR[0].size(); subID++)
-			// 	{
-			// 		int x1_ind = (new_PAR[frame_num][subID] - 1) * 7 + 1;
-			// 		x1.push_back(new_DATA[frame_num][x1_ind]);
-			// 		yy1.push_back(new_DATA[frame_num][x1_ind + 1]);
-			// 		x2.push_back(new_DATA[frame_num][x1_ind + 2]);
-			// 		y2.push_back(new_DATA[frame_num][x1_ind + 3]);
-			// 	}
-			// }
+			for (int subID = 0; subID < new_PAR[0].size(); subID++)
+			{
+				int x1_ind = (new_PAR[frame_num][subID] - 1) * 7 + 1;
+				x1.push_back(new_DATA[frame_num][x1_ind]);
+				yy1.push_back(new_DATA[frame_num][x1_ind + 1]);
+				x2.push_back(new_DATA[frame_num][x1_ind + 2]);
+				y2.push_back(new_DATA[frame_num][x1_ind + 3]);
+			}
+			//}
+
 			for (int iScale = 0; iScale < scale_num; iScale++)
 			{
 				if (iScale == 0)
@@ -282,21 +283,23 @@ int main(int argc, char **argv)
 					}
 					int con = 0;
 					//if drinking is detected in this frame
-					for (int j = 0; j < new_DRINK[frame_num].size(); j++)
-					{
-						if (point.x >= x1Drink[j] && point.x <= x2Drink[j] && point.y >= y1Drink[j] && point.y <= y2Drink[j])
-						{
-							con = 1;
-						}
-					}
-					// draw bounding box for all subjects
-					// for (int i = 0; i < x1.size(); i++)
+					// for (int j = 0; j < new_DRINK[frame_num].size(); j++)
 					// {
-					// 	if (point.x >= x1[i] && point.x <= x2[i] && point.y >= yy1[i] && point.y <= y2[i])
+					// 	if (point.x >= x1Drink[j] && point.x <= x2Drink[j] && point.y >= y1Drink[j] && point.y <= y2Drink[j])
 					// 	{
 					// 		con = 1;
 					// 	}
 					// }
+
+					// draw bounding box for all subjects
+					// for (int i = 0; i < x1.size(); i++)
+					// {
+					int i = 0;
+					if (point.x >= x1[i] && point.x <= x2[i] && point.y >= yy1[i] && point.y <= y2[i])
+					{
+						con = 1;
+					}
+					//}
 					if (con == 0)
 					{
 						iTrack = tracks.erase(iTrack);
@@ -423,6 +426,8 @@ int main(int argc, char **argv)
 				//printf (file_,"%d.csv",frame_num);
 				//strcat (file_,".csv");
 				ofstream myfile;
+				ofstream subject;
+
 				myfile.open(file_.c_str());
 				myfile << str;
 				myfile.close();
@@ -430,40 +435,21 @@ int main(int argc, char **argv)
 			}
 			if (show_track == 1)
 			{
-				// for (int i = 0; i < x1.size(); i++)
-				// {
-				// 	Point lu = Point(x1[i], yy1[i]);
-				// 	Point rt = Point(x2[i], y2[i]);
-				// if the current action is annotated as drinking
-				for (int j = 0; j < new_DRINK[frame_num].size(); j++)
-				{
-					Point lu = Point(x1Drink[j], y1Drink[j]);
-					Point rt = Point(x2Drink[j], y2Drink[j]);
-					char ss[200];
-					sprintf(ss, "Drinking is detected %i", new_DRINK[frame_num][j]);
-					putText(image, ss, Point(x1Drink[j], y1Drink[j] + 20), CV_FONT_HERSHEY_PLAIN, 1, Scalar(0, 166, 214), 2, 1);
-					rectangle(image, lu, rt, Scalar(0, 255, 0), 2);
-					// else
-					// {
-					// 	rectangle(image, lu, rt, Scalar(255, 0, 0), 2);
-					// }
-				}
-				// else
-				// {
-				// 	rectangle(image, lu, rt, Scalar(255, 0, 0), 2);
-				// }
-				//}
+				//for (int i = 0; i < x1.size(); i++)
+				//{
+				int i = 0;
+				Point lu = Point(x1[i], yy1[i]);
+				Point rt = Point(x2[i], y2[i]);
+				char ss[200];
+				sprintf(ss, "Sub %i", new_PAR[frame_num][i]);
+				//putText(image, ss, Point(x1Drink[j], y1Drink[j] + 20), CV_FONT_HERSHEY_PLAIN, 1, Scalar(0, 166, 214), 2, 1);
+				rectangle(image, lu, rt, Scalar(0, 255, 0), 2);
 				imshow("DenseTrack", image);
 				c = cvWaitKey(3);
 				if ((char)c == 27)
 					break;
 			}
 			frame_num++;
-		}
-		else
-		{
-			frame_num++;
-		}
 	}
 	if (show_track == 1)
 		destroyWindow("DenseTrack");
