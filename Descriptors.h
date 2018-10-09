@@ -294,8 +294,9 @@ void DrawTrack(const std::vector<Point2f>& point, const int index, const float s
 	circle(image, point0, 2, Scalar(0,0,255), -1, 8, 0);
 }
 
-void PrintDesc(std::vector<float>& desc, DescInfo& descInfo, TrackInfo& trackInfo)
+string PrintDesc(std::vector<float>& desc, DescInfo& descInfo, TrackInfo& trackInfo)
 {
+	string str = "";
 	int tStride = cvFloor(trackInfo.length/descInfo.ntCells);
 	float norm = 1./float(tStride);
 	int dim = descInfo.dim;
@@ -306,8 +307,13 @@ void PrintDesc(std::vector<float>& desc, DescInfo& descInfo, TrackInfo& trackInf
 			for(int j = 0; j < dim; j++)
 				vec[j] += desc[pos++];
 		for(int j = 0; j < dim; j++)
-			printf("%.7f\t", vec[j]*norm);
-	}
+			{
+				printf("%.7f\t", vec[j]*norm);
+				str.append("\t" + tostr(vec[j]*norm) + "\t");
+
+			}
+				}
+	return str;
 }
 
 #endif /*DESCRIPTORS_H_*/

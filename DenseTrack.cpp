@@ -11,7 +11,6 @@
 #include <iostream>
 #include <fstream>
 #include <sys/stat.h>
-#include <sstream>
 
 using namespace std;
 using namespace cv;
@@ -35,6 +34,7 @@ vector<vector<int> > new_DRINK = getData(DRINK_path);
 //}
 
 int show_track = 1; // set show_track = 1, if you want to visualize the trajectories
+
 vector<int> x1;
 vector<int> x2;
 vector<int> yy1;
@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 
 		// get a new frame
 		capture >> frame;
-		if (frame.empty() || frame_num > 500)
+		if (frame.empty())
 			break;
 
 		if (frame_num < start_frame || frame_num > end_frame)
@@ -151,7 +151,6 @@ int main(int argc, char **argv)
 			continue;
 		}
 		printf("Processing %d of %d\n", frame_num, end_frame);
-		printf("Process sub %i\n",  curSub);
 		if (frame_num == start_frame)
 		{
 			image.create(frame.size(), CV_8UC3);
@@ -318,44 +317,48 @@ int main(int argc, char **argv)
 						//string trajectory_owner;
 						//printf("%d\t%f\t%f\t%f\t%f\t%f\t%f\t", frame_num, mean_x, mean_y, var_x, var_y, length, fscales[iScale]);
 						//myfile<< frame_num <<"\t"<< mean_x<<"\t"<< mean_y<<"\t"<< var_x<<"\t"<< var_y<<"\t"<< length<<"\t"<< fscales[iScale]<<"\t";
-						cout << "stored frame number is " << frame_num << endl;
 						str.append(tostr(frame_num) + "\t" + tostr(mean_x) + "\t" + tostr(mean_y) + "\t" + tostr(var_x) + "\t" + tostr(var_y) + "\t" + tostr(length) + "\t" + tostr(fscales[iScale]) + "\t");
-						//str.append("%d\t%f\t%f\t%f\t%f\t%f\t%f",frame_num, mean_x, mean_y, var_x, var_y, length, fscales[iScale]);
 
 						// for spatio-temporal pyramid
-						//printf("%f\t", std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999));
-						//printf("%f\t", std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999));
-						//printf("%f\t", std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999));
+						printf("%f\t\n", std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999));
+						printf("%f\t\n", std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999));
+						printf("%f\t\n", std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999));
 
 						//myfile<<std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999)<<"\t";
 						//myfile<<std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999)<<"\t";
 						//myfile<<std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999)<<"\t";
 
-						//str.append(tostr(std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999))+"\t");
-						//str.append(tostr(std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999))+"\t");
-						//str.append(tostr(std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999))+"\t");
+						str.append(tostr(std::min<float>(std::max<float>(mean_x/float(seqInfo.width), 0), 0.999))+"\t");
+						str.append(tostr(std::min<float>(std::max<float>(mean_y/float(seqInfo.height), 0), 0.999))+"\t");
+						str.append(tostr(std::min<float>(std::max<float>((frame_num - trackInfo.length/2.0 - start_frame)/float(seqInfo.length), 0), 0.999))+"\t");
 
 						//myfile<<iTrack->original_point.x<<"\t"<<iTrack->original_point.y<<"\t";
-						//str.append(tostr(iTrack->original_point.x) + "\t" + tostr(iTrack->original_point.y) + "\t");
+						str.append(tostr(iTrack->original_point.x) + "\t" + tostr(iTrack->original_point.y) + "\t");
 
 						// output the normalized trajectory (only need to divide by dt to have velocity)
 						for (int i = 0; i < trackInfo.length; ++i)
 						{
-							//printf("%f\t%f\t", trajectory[i].x,trajectory[i].y);
+							printf("%f\t%f\t", trajectory[i].x,trajectory[i].y);
 							//myfile<< trajectory[i].x <<"\t"<< trajectory[i].y <<"\t";
-							//str.append(tostr(trajectory[i].x) + "\t" + tostr(trajectory[i].y) + "\t");
+							str.append(tostr(trajectory[i].x) + "\t" + tostr(trajectory[i].y) + "\t");
 						}
 
 						// output the trajectory positions in x and y
-						//for (int i = 0; i < trackInfo.length; ++i){
-						//	str.append(tostr(trajectory_poisiotns[i].x) + "\t" + tostr(trajectory_poisiotns[i].y) + "\t");
-						//}
+						for (int i = 0; i < trackInfo.length; ++i){
+							printf("%f\t%f\t", trajectory_poisiotns[i].x,trajectory[i].y);
+							str.append(tostr(trajectory_poisiotns[i].x) + "\t" + tostr(trajectory_poisiotns[i].y) + "\t");
+						}
 
-						//PrintDesc(iTrack->hog, hogInfo, trackInfo);
-						//PrintDesc(iTrack->hof, hofInfo, trackInfo);
-						//PrintDesc(iTrack->mbhX, mbhInfo, trackInfo);
-						//PrintDesc(iTrack->mbhY, mbhInfo, trackInfo);
-						//printf("\n");
+						cout << "\n" << endl;
+
+						str.append(PrintDesc(iTrack->hog, hogInfo, trackInfo));
+						str.append("\t" + tostr(frame_num*2)+ "t");
+						str.append(PrintDesc(iTrack->hof, hofInfo, trackInfo));
+						str.append("\t" + tostr(frame_num*2)+ "t");
+						str.append(PrintDesc(iTrack->mbhX, mbhInfo, trackInfo));
+						str.append("\t" + tostr(frame_num*2)+ "t");
+						str.append(PrintDesc(iTrack->mbhY, mbhInfo, trackInfo));
+						printf("\n");
 						//myfile<<"\n";
 
 						str.append("\n");
@@ -397,7 +400,6 @@ int main(int argc, char **argv)
 		if (!str.empty())
 		{
 			//printf("Storing file at %d frames... ", frame_num);
-			cout << "check frame number" << frame_num << endl;
 			string file_ = string(filename) + "/" + tostr(frame_num) + ".csv";
 			//printf (file_,"%d.csv",frame_num);
 			//strcat (file_,".csv");
